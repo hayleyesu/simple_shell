@@ -1,50 +1,87 @@
-#include "shell.h"
+#include "holberton.h"
+
 /**
-* main - reads commands and executes
-* @ac: number of args
-* @av: pointer to args
-* @envp: pointer to env variables
-* Return: 0
-*/
-
-int main(int ac, char **av, char *envp[])
+ * execute - executes the command
+ * @cmd: command to run
+ * Return: 0 on success1 -1 if cmd is exit and 1 on any other error
+ */
+int execute(char **cmd)
 {
-	char *line = NULL, *command_args = NULL, *path = NULL;
-	size_t bufsize = 0;
-	ssize_t lsize = 0;
-	char **command = NULL, **path_args = NULL;
-	(void)envp, (void)av;
 
-	if (ac < 1)
-		return (-1);
-	signal(SIGINT, test_signal);
-	while (1)
-	{
-		free_buff(command);
-		free_buff(path_args);
-		free(command_args);
-		prompt();
-		lsize = getline(&line, &bufsize, stdin);
-		if (lsize < 0)
-			break;
-		info.ln_count++;
-		if (line[lsize - 1] == '\n')
-			line[lsize - 1] = '\0';
-		command = token(line);
-		if (command == NULL || *command == NULL || **command == '\0')
-			continue;
-		if (check(command, line))
-			continue;
-		path = get_path();
-		path_args = token(path);
-		command_args = check_path(path_args, command[0]);
-		if (!command_args)
-			perror(av[0]);
-		else
-			execute(command_args, command);
-	}
-	if (lsize < 0 && flags.interactive)
-		write(STDERR_FILENO, "\n", 1);
-	free(line);
-	return (0);
+    pid_t child_pid;
+    int status;
+
+    if (strncmp("exit", cmd[0], 4) == 0)
+        return (-1);
+
+    child_pid = fork();
+
+    if (child_pid == -1)
+    {
+        perror("Error");
+        return (1);
+    }
+    else if (child_pid == 0)
+    {
+        if (execve(cmd[0], cmd, NULL) == -1)
+        {
+            perror("Error");
+            exit(-1);
+        }
+    }
+    else
+        wait(&status);
+
+    return (0);
+}
+
+/**
+ * main - main simple shell
+ * @argc: number of arguments
+ * @argv: list of command line arguments
+ * Return: Always 0, -1 on error.
+ */
+
+int main(int argc, char **argv)
+{
+
+    int response;
+    char **tokens;
+    size_t bufsize = BUFSIZ;
+    int isPipe = 0;
+    char *buffer;
+
+    if (argc >= 2)
+    {
+        /*TODO: Handle cases where there is no argument, only the command*/
+        if (execve(argv[1], argv, NULL) == -1)
+        {
+            perror("Error");
+            exit(-1);
+        }
+        return (0);
+    }
+
+    buffer = (char *)malloc(bufsize * sizeof(char));
+    if (buffer == NULL)
+    {
+        perror("Unable to allocate buffer");
+        exit(1);
+    }
+
+    do
+    {
+        if (isatty(fileno(stdin)))
+        {
+            isPipe = 1;
+            _puts("cisfun#: ");
+        }
+
+        getline(&buffer, &bufsize, stdin);
+        buffer[_strlen(buffer) - 1] = '\0';
+        tokens = stringToTokens(buffer);
+        response = execute(tokens);
+    } while (isPipe && response != -1);
+
+    return (0);
 }
